@@ -1,39 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { showError } from './errorBoundary';
+import React, { useEffect, useState } from 'react'
+import { showError } from './errorBoundary'
+import { IUser, IUserRepo } from './interfaces/User'
+import { ICommit } from './interfaces/Commit'
+import { observer } from 'mobx-react-lite'
+import userStore from './store/user'
+import commitStore from './store/commit'
 
-interface User {
-	login: string,
-	id: number,
-	avatar_url: string,
-	repos_url: string,
-	public_repos: number,
-}
-
-interface UserRepo {
-	id: number,
-	name: string,
-	language: string,
-	description: null | string,
-	stargazers_count: number,
-	commits_url: string
-}
-
-interface Commit {
-	sha: string
-	commit: {
-		author: {
-			date: string
-			name: string
-		}
-	}
-}
-
-const App = () => {
-	const [usernameSearch, setUsernameSearch] = useState<string>('')
-	const [userInfo, setUserInfo] = useState<User | null>(null)
-	const [userRepos, setUserRepos] = useState<UserRepo[] | null>(null)
+const App = observer(() => {
 	const [isShowRepoDetails, setIsShowRepoDetails] = useState<boolean>(false)
-	const [currentRepoCommit, setCurrentRepoCommit] = useState<string>('')
+	const [currentRepoCommitsURL, setCurrentRepoCommit] = useState<string>('')
 
 	const handleSubmit = (event: React.FormEvent<HTMLButtonElement>): void => {
 		event.preventDefault()
@@ -42,18 +17,18 @@ const App = () => {
 
 	const searchUser = async () => {
 		const [userInfoResponse, userReposResponse] = await Promise.all([
-			fetch(`https://api.github.com/users/${usernameSearch}`),
-			fetch(`https://api.github.com/users/${usernameSearch}/repos`),
+			fetch(`https://api.github.com/users/${userStore.usernameSearch}`),
+			fetch(`https://api.github.com/users/${userStore.usernameSearch}/repos`),
 		])
 
 		showError(userInfoResponse)
 		showError(userReposResponse)
 
-		const userInfo: User = await userInfoResponse.json()
-		const userRepos: UserRepo[] = await userReposResponse.json()
+		const userInfo: IUser = await userInfoResponse.json()
+		const userRepos: IUserRepo[] = await userReposResponse.json()
 
-		setUserInfo(userInfo)
-		setUserRepos(userRepos)
+		userStore.setUserInfo = userInfo
+		userStore.setUserRepos = userRepos
 	}
 
 	const handleShowRepoDetail = (commitsUrl: string = ''): void => {
@@ -65,8 +40,8 @@ const App = () => {
 		<div>
 			<form>
 				<input 
-					value={usernameSearch}
-					onChange={(event) => setUsernameSearch(event.target.value)}
+					value={userStore.usernameSearch}
+					onChange={(event) => userStore.setUsernameSearch = event.target.value}
 					placeholder='GitHub Username'
 				/>
 				<button onClick={handleSubmit}>Search</button>
@@ -75,17 +50,17 @@ const App = () => {
 			{isShowRepoDetails ?
 				<CommitDetails 
 					handleShowRepoDetail={handleShowRepoDetail}
-					currentRepoCommit={currentRepoCommit}
+					currentRepoCommitsURL={currentRepoCommitsURL}
 				/> :
-				userInfo &&
+				userStore.userInfo &&
 					<>
 						<div>
-							<img src={userInfo.avatar_url} alt='' width={150} />
-							<p>Login: {userInfo.login}</p>
-							<p>Repos: {userInfo.public_repos}</p>
+							<img src={userStore.userInfo.avatar_url} alt='' width={150} />
+							<p>Login: {userStore.userInfo.login}</p>
+							<p>Repos: {userStore.userInfo.public_repos}</p>
 						</div>
 	
-						{userRepos &&
+						{userStore.userRepos &&
 							<table>
 								<thead>
 									<tr>
@@ -97,7 +72,7 @@ const App = () => {
 								</thead>
 	
 								<tbody>
-								{userRepos.map(repo => (
+								{userStore.userRepos.map(repo => (
 									<tr key={repo.id}>
 										<td onClick={() => handleShowRepoDetail(repo.commits_url)} style={{cursor: 'pointer'}}>{repo.name}</td>
 										<td>{repo.language}</td>
@@ -112,19 +87,19 @@ const App = () => {
 			}
 		</div>
 	);
-}
+})
 
-const CommitDetails = ({ handleShowRepoDetail, currentRepoCommit }: {handleShowRepoDetail: () => void, currentRepoCommit: string}) => {
+const CommitDetails = observer(({ handleShowRepoDetail, currentRepoCommitsURL }: {handleShowRepoDetail: () => void, currentRepoCommitsURL: string}) => {
 	// добавить стейт mobX
 	// провести декомпозицию компонентов
-	const [commit, setCommit] = useState<Commit | null>(null)
+	// const [commit, setCommit] = useState<ICommit | null>(null)
 
 	useEffect(() => {
 		getCommit()
 	}, [])
 
 	const getCommit = async () => {
-		const url = currentRepoCommit?.split('{')[0]
+		const url = currentRepoCommitsURL?.split('{')[0]
 		const commitResponse = await fetch(url)
 
 		showError(commitResponse)
@@ -132,7 +107,7 @@ const CommitDetails = ({ handleShowRepoDetail, currentRepoCommit }: {handleShowR
 		const commitData = await commitResponse.json()
 
 		const date = dateToISO8601(commitData[0].commit.author.date)
-		const commit: Commit = {
+		const newCommit: ICommit = {
 			sha: commitData[0].sha,
 			commit: {
 				author: {
@@ -142,7 +117,7 @@ const CommitDetails = ({ handleShowRepoDetail, currentRepoCommit }: {handleShowR
 			}
 		}
 
-		setCommit(commit)
+		commitStore.setCommit = newCommit
 	}
 
 	const dateToISO8601 = (rawDate: string): string => {
@@ -167,18 +142,20 @@ const CommitDetails = ({ handleShowRepoDetail, currentRepoCommit }: {handleShowR
 					</tr>
 				</thead>
 
-				<tbody>
-					<tr>
-						<td>{commit?.commit.author.name}</td>
-						<td>{commit?.sha}</td>
-						<td>{commit?.commit.author.date}</td>
-					</tr>
-				</tbody>
+				{commitStore.commit && 
+					<tbody>
+						<tr>
+							<td>{commitStore.commit.commit.author.name}</td>
+							<td>{commitStore.commit.sha}</td>
+							<td>{commitStore.commit.commit.author.date}</td>
+						</tr>
+					</tbody>
+				}
 			</table>
 
 			<button onClick={handleShowRepoDetail}>Назад</button>
 		</>
 	)
-}
+})
 
 export default App;
