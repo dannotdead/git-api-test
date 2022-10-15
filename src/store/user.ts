@@ -14,7 +14,7 @@ class User {
 		this.usernameSearch = value
 	}
 
-	set setUserInfo(value: IUser) {
+	set setUserInfo(value: IUser | null) {
 		this.userInfo = value
 	}
 

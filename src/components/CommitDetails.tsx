@@ -13,30 +13,33 @@ const CommitDetails = observer(({
 	}) => {
 
 	useEffect(() => {
-		getCommit()
-	}, [])
+		const getCommit = async () => {
+			commitStore.setResetCommits = []
+			const url = currentRepoCommitsURL?.split('{')[0]
+			const commitResponse = await fetch(url)
 
-	const getCommit = async () => {
-		const url = currentRepoCommitsURL?.split('{')[0]
-		const commitResponse = await fetch(url)
+			showError(commitResponse)
 
-		showError(commitResponse)
+			const commitData: ICommit[] = await commitResponse.json()
 
-		const commitData = await commitResponse.json()
-
-		const date = dateToISO8601(commitData[0].commit.author.date)
-		const newCommit: ICommit = {
-			sha: commitData[0].sha,
-			commit: {
-				author: {
-					date,
-					name: commitData[0].commit.author.name
+			commitData.forEach(commit => {
+				const date = dateToISO8601(commit.commit.author.date)
+				const newCommit: ICommit = {
+					sha: commit.sha,
+					commit: {
+						author: {
+							date,
+							name: commit.commit.author.name
+						}
+					}
 				}
-			}
+
+				commitStore.setCommit = newCommit
+			})
 		}
 
-		commitStore.setCommit = newCommit
-	}
+		getCommit()
+	}, [currentRepoCommitsURL])
 
 	const dateToISO8601 = (rawDate: string): string => {
 		const date = new Date(rawDate)
@@ -48,30 +51,38 @@ const CommitDetails = observer(({
 		return `${year}-${month}-${day}`
 	}
 
-
 	return (
 		<>
-			<table>
+			<table className='w-full max-w-4xl text-center text-gray-700 mb-10'>
 				<thead>
 					<tr>
-						<th>Автор</th>
-						<th>Хэш коммита</th>
+						<th className='border-r border-slate-300'>Автор</th>
+						<th className='border-r border-slate-300'>Хэш коммита</th>
 						<th>Дата</th>
 					</tr>
 				</thead>
 
-				{commitStore.commit && 
-					<tbody>
+				<tbody>
+					{commitStore?.commits?.map(commit => (
 						<tr>
-							<td>{commitStore.commit.commit.author.name}</td>
-							<td>{commitStore.commit.sha}</td>
-							<td>{commitStore.commit.commit.author.date}</td>
+							<td>{commit.commit.author.name}</td>
+							<td>{commit.sha}</td>
+							<td>{commit.commit.author.date}</td>
 						</tr>
-					</tbody>
-				}
+					))}
+				</tbody>
 			</table>
 
-			<button onClick={handleShowRepoDetail}>Назад</button>
+			<div className='rounded-full bg-gradient-to-r p-[4px] from-[#81d7ff] via-[#a8b7fe] to-[#e783fc] text-gray-700'>
+				<div className='flex flex-col justify-between h-full bg-white rounded-full px-4 py-1 hover:bg-transparent hover:text-white'>
+					<button
+						className=''
+						onClick={handleShowRepoDetail}
+					>
+						Назад
+					</button>
+					</div>
+			</div>
 		</>
 	)
 })

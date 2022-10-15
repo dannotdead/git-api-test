@@ -17,7 +17,7 @@ const App = observer(() => {
 	}
 
 	return (
-		<div>
+		<div className='flex justify-center items-center flex-col'>
 			<SearchForm />
 
 			{isShowRepoDetails ?
